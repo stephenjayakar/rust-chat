@@ -1,5 +1,6 @@
 use tonic::{transport::Server, Request, Response, Status};
 use std::collections::HashSet;
+use std::vec::Vec;
 use tokio::sync::Mutex;
 
 const SERVER_PORT: i32 = 50051;
@@ -16,6 +17,12 @@ use rust_chat::{
 
 pub struct MyChatRoom {
   users: Mutex::<HashSet<String>>,
+  messages: Mutex::<Vec<MessageEntry>>,
+}
+
+struct MessageEntry {
+  username: String,
+  message: String,
 }
 
 #[tonic::async_trait]
@@ -41,14 +48,35 @@ impl ChatRoom for MyChatRoom {
     &self,
     request: Request<SendMessageRequest>
   ) -> Result<Response<SendMessageReply>, Status> {
-    unimplemented!();
+    let users = self.users.lock().await;
+    let mut messages = self.messages.lock().await;
+    let request = request.into_inner();
+    let username = request.username;
+    match users.contains(&username) {
+      true => {
+        let message = request.message;
+        messages.push(MessageEntry {
+          username: username.clone(),
+          message: message.clone(),
+        });
+        println!("{}: {}", username, message);
+        let reply = rust_chat::SendMessageReply {
+          ok: true
+        };
+        Ok(Response::new(reply))
+      }
+      false => Ok(Response::new(rust_chat::SendMessageReply { ok: false }))
+    }
   }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let addr = format!("[::1]:{}", SERVER_PORT).parse()?;
-  let chatroom = MyChatRoom { users: Mutex::new(HashSet::new()) };
+  let chatroom = MyChatRoom { 
+    users: Mutex::new(HashSet::new()),
+    messages: Mutex::new(Vec::new()),
+  };
 
   println!("Server listening in on port {}", SERVER_PORT);
 
