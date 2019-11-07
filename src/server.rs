@@ -73,7 +73,7 @@ impl ChatRoom for MyChatRoom {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let addr = format!("[::1]:{}", SERVER_PORT).parse()?;
-  let chatroom = MyChatRoom { 
+  let chatroom = MyChatRoom {
     users: Mutex::new(HashSet::new()),
     messages: Mutex::new(Vec::new()),
   };
