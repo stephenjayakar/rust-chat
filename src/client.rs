@@ -6,6 +6,8 @@ pub mod rust_chat {
   tonic::include_proto!("rustchat");
 }
 
+mod datastore;
+
 use rust_chat::{
   client::ChatRoomClient,
   LoginRequest,
