@@ -3,6 +3,7 @@ package rustchat;
 
 service ChatRoom {
   rpc Login(LoginRequest) returns (LoginReply);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageReply);
 }
 
 message LoginRequest {
@@ -10,5 +11,14 @@ message LoginRequest {
 }
 
 message LoginReply {
+  bool ok = 1;
+}
+
+message SendMessageRequest {
+  string username = 1;
+  string message = 2;
+}
+
+message SendMessageReply {
   bool ok = 1;
 }
