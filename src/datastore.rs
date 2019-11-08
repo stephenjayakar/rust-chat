@@ -11,12 +11,13 @@ pub struct DataStore {
   messages: Mutex<Vec<String>>,
 }
 
-struct MessageEntry {
-  username: String,
-  message: String,
-}
-
 impl DataStore {
+  pub fn new() -> DataStore {
+    DataStore {
+      users: Mutex::new(HashSet::new()),
+      messages: Mutex::new(Vec::new())
+    }
+  }
   // returns false if user already exists
   pub async fn create_user(&self, username: String) -> bool {
     let mut users = self.users.lock().await;
@@ -34,9 +35,9 @@ impl DataStore {
   }
 
   // TODO: add some type of cursor to not go through all messages
-  pub async fn get_messages() {
-    unimplemented!;
-    // this should copy the underlying data structure and return it
-    // also, will have to shift to event-based structure :/
+  // TODO: change this to events to support login messages
+  pub async fn get_messages(&self) -> Vec<String> {
+    let messages = self.messages.lock().await;
+    messages.clone()
   }
 }
