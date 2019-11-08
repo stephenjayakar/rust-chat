@@ -3,6 +3,8 @@
     of SQL database.  also, wanted to move mutex logic out
     of main server
 */
+// TODO: figure out why we need this?
+#![allow(dead_code)]
 use std::{collections::HashSet, vec::Vec};
 use tokio::sync::Mutex;
 
@@ -19,13 +21,13 @@ impl DataStore {
     }
   }
   // returns false if user already exists
-  pub async fn create_user(&self, username: &String) -> bool {
+  pub async fn create_user(&self, username: &str) -> bool {
     let mut users = self.users.lock().await;
-    users.insert(username.clone())
+    users.insert(username.to_string())
   }
 
-  pub async fn user_exists(&self, username: &String) -> bool {
-    let mut users = self.users.lock().await;
+  pub async fn user_exists(&self, username: &str) -> bool {
+    let users = self.users.lock().await;
     users.contains(username)
   }
 

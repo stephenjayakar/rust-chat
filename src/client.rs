@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let mut client = ChatRoomClient::connect(format!("http://[::1]:{}", SERVER_PORT)).await?;
 
   let request = tonic::Request::new(LoginRequest {
-        username: username.clone().into(),
+    username: username.clone(),
   });
 
   let response = client.login(request).await?;
@@ -30,14 +30,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   println!("successful login as username {}!", username);
   println!("write messages followed with enter");
   while looping {
-    let mut message: String = read!("{}\n");
+    let message: String = read!("{}\n");
     let message = message.trim();
-    if message.len() == 0 {
+    if message.is_empty() {
       continue;
     }
     let request = tonic::Request::new(SendMessageRequest {
-      username: username.clone().into(),
-      message: message.clone().into(),
+      username: username.clone(),
+      message: message.into(),
     });
     let response = client.send_message(request).await?;
     looping = response.into_inner().ok;
