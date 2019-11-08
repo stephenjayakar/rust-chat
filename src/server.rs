@@ -1,7 +1,7 @@
 use tonic::{transport::Server, Request, Response, Status};
-use std::collections::HashSet;
-use std::vec::Vec;
-use tokio::sync::Mutex;
+
+mod datastore;
+use datastore::DataStore;
 
 const SERVER_PORT: i32 = 50051;
 
@@ -11,62 +11,56 @@ pub mod rust_chat {
 
 use rust_chat::{
   server::{ChatRoom, ChatRoomServer},
-  LoginRequest, LoginReply,
-  SendMessageRequest, SendMessageReply,
+  LoginReply, LoginRequest, SendMessageReply, SendMessageRequest,
 };
 
 pub struct MyChatRoom {
-  users: Mutex::<HashSet<String>>,
-  messages: Mutex::<Vec<MessageEntry>>,
+  data_store: DataStore,
 }
 
-struct MessageEntry {
-  username: String,
-  message: String,
+fn _print_messages(messages: Vec<String>) {
+  // clear screen
+  print!("{}[2J", 27 as char);
+  for message in messages {
+    println!("{}", message);
+  }
 }
 
 #[tonic::async_trait]
 impl ChatRoom for MyChatRoom {
-  async fn login(
-    &self,
-    request: Request<LoginRequest>
-  ) -> Result<Response<LoginReply>, Status> {
-    let mut users = self.users.lock().await;
+  async fn login(&self, request: Request<LoginRequest>) -> Result<Response<LoginReply>, Status> {
     let username = request.into_inner().username;
-    let success = users.insert(username.clone());
+    let success = self.data_store.create_user(&username).await;
     if success {
-      println!("User {} logged on!", username);
+      let msg = format!("{} logged on!", username);
+      self.data_store.add_message(msg).await;
     }
-
-    let reply = rust_chat::LoginReply {
-      ok: success,
-    };
+    let reply = rust_chat::LoginReply { ok: success };
     Ok(Response::new(reply))
   }
 
   async fn send_message(
     &self,
-    request: Request<SendMessageRequest>
+    request: Request<SendMessageRequest>,
   ) -> Result<Response<SendMessageReply>, Status> {
-    let users = self.users.lock().await;
-    let mut messages = self.messages.lock().await;
     let request = request.into_inner();
     let username = request.username;
-    match users.contains(&username) {
-      true => {
-        let message = request.message;
-        messages.push(MessageEntry {
-          username: username.clone(),
-          message: message.clone(),
-        });
-        println!("{}: {}", username, message);
-        let reply = rust_chat::SendMessageReply {
-          ok: true
-        };
-        Ok(Response::new(reply))
-      }
-      false => Ok(Response::new(rust_chat::SendMessageReply { ok: false }))
+    let message = request.message;
+    let user_exists = self.data_store.user_exists(&username).await;
+    if user_exists {
+      let msg = format!("{}: {}", username, message);
+      self
+        .data_store
+        .add_message(msg)
+        .await;
     }
+
+    // DEBUG, probably remove once client streaming impl
+    let messages = self.data_store.get_messages().await;
+    _print_messages(messages);
+
+    let reply = rust_chat::SendMessageReply { ok: user_exists };
+    Ok(Response::new(reply))
   }
 }
 
@@ -74,8 +68,7 @@ impl ChatRoom for MyChatRoom {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let addr = format!("[::1]:{}", SERVER_PORT).parse()?;
   let chatroom = MyChatRoom {
-    users: Mutex::new(HashSet::new()),
-    messages: Mutex::new(Vec::new()),
+    data_store: DataStore::new(),
   };
 
   println!("Server listening in on port {}", SERVER_PORT);
