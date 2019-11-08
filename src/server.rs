@@ -18,6 +18,14 @@ pub struct MyChatRoom {
   data_store: DataStore,
 }
 
+fn _print_messages(messages: Vec<String>) {
+  // clear screen
+  print!("{}[2J", 27 as char);
+  for message in messages {
+    println!("{}", message);
+  }
+}
+
 #[tonic::async_trait]
 impl ChatRoom for MyChatRoom {
   async fn login(&self, request: Request<LoginRequest>) -> Result<Response<LoginReply>, Status> {
@@ -46,6 +54,11 @@ impl ChatRoom for MyChatRoom {
         .add_message(msg)
         .await;
     }
+
+    // DEBUG, probably remove once client streaming impl
+    let messages = self.data_store.get_messages().await;
+    _print_messages(messages);
+
     let reply = rust_chat::SendMessageReply { ok: user_exists };
     Ok(Response::new(reply))
   }
