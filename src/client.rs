@@ -30,7 +30,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   println!("successful login as username {}!", username);
   println!("write messages followed with enter");
   while looping {
-    let message: String = read!("{}\n");
+    let mut message: String = read!("{}\n");
+    let message = message.trim();
+    if message.len() == 0 {
+      continue;
+    }
     let request = tonic::Request::new(SendMessageRequest {
       username: username.clone().into(),
       message: message.clone().into(),
