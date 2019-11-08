@@ -19,14 +19,14 @@ impl DataStore {
     }
   }
   // returns false if user already exists
-  pub async fn create_user(&self, username: String) -> bool {
+  pub async fn create_user(&self, username: &String) -> bool {
     let mut users = self.users.lock().await;
     users.insert(username.clone())
   }
 
-  pub async fn user_exists(&self, username: String) -> bool {
+  pub async fn user_exists(&self, username: &String) -> bool {
     let mut users = self.users.lock().await;
-    users.contains(&username)
+    users.contains(username)
   }
 
   pub async fn add_message(&self, message: String) {

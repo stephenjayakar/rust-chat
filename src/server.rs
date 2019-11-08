@@ -11,8 +11,7 @@ pub mod rust_chat {
 
 use rust_chat::{
   server::{ChatRoom, ChatRoomServer},
-  LoginRequest, LoginReply,
-  SendMessageRequest, SendMessageReply,
+  LoginReply, LoginRequest, SendMessageReply, SendMessageRequest,
 };
 
 pub struct MyChatRoom {
@@ -21,37 +20,33 @@ pub struct MyChatRoom {
 
 #[tonic::async_trait]
 impl ChatRoom for MyChatRoom {
-  async fn login(
-    &self,
-    request: Request<LoginRequest>
-  ) -> Result<Response<LoginReply>, Status> {
+  async fn login(&self, request: Request<LoginRequest>) -> Result<Response<LoginReply>, Status> {
     let username = request.into_inner().username;
-    let success = self.data_store.create_user(username).await;
+    let success = self.data_store.create_user(&username).await;
     if success {
-      self.data_store.add_message(
-        format!("{} logged on!", username)
-      ).await;
+      let msg = format!("{} logged on!", username);
+      self.data_store.add_message(msg).await;
     }
-    let reply = rust_chat::LoginReply {
-      ok: success,
-    };
+    let reply = rust_chat::LoginReply { ok: success };
     Ok(Response::new(reply))
-}
+  }
 
   async fn send_message(
     &self,
-    request: Request<SendMessageRequest>
+    request: Request<SendMessageRequest>,
   ) -> Result<Response<SendMessageReply>, Status> {
     let request = request.into_inner();
     let username = request.username;
     let message = request.message;
-    let user_exists = self.data_store.user_exists(username).await;
+    let user_exists = self.data_store.user_exists(&username).await;
     if user_exists {
-      self.data_store.add_message(format!("{}: {}", username, message)).await;
+      let msg = format!("{}: {}", username, message);
+      self
+        .data_store
+        .add_message(msg)
+        .await;
     }
-    let reply = rust_chat::SendMessageReply {
-      ok: user_exists,
-    };
+    let reply = rust_chat::SendMessageReply { ok: user_exists };
     Ok(Response::new(reply))
   }
 }
