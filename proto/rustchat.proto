@@ -4,6 +4,8 @@ package rustchat;
 service ChatRoom {
   rpc Login(LoginRequest) returns (LoginReply);
   rpc SendMessage(SendMessageRequest) returns (SendMessageReply);
+  rpc TestStream(TestStreamRequest) returns (stream TestStreamReply);
+  rpc GetMessageStream(GetMessageStreamRequest) returns (stream GetMessageStreamReply);
 }
 
 message LoginRequest {
@@ -21,4 +23,21 @@ message SendMessageRequest {
 
 message SendMessageReply {
   bool ok = 1;
+}
+
+message TestStreamRequest {
+  string message = 1;
+}
+
+// streams the characters of the input -> client
+message TestStreamReply {
+  string character = 1;
+}
+
+message GetMessageStreamRequest {
+  uint32 cursor = 1;
+}
+
+message GetMessageStreamReply {
+  string message = 1;
 }

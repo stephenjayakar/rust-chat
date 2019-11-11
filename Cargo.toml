@@ -19,6 +19,7 @@ prost = "0.5"
 prost-derive = "0.5"
 tokio = "=0.2.0-alpha.6"
 text_io = "0.1.7"
+termion = "1.5.4"
 
 [build-dependencies]
 tonic-build = "0.1.0-alpha.5"
