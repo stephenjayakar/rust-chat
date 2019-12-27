@@ -7,6 +7,7 @@ use tonic::transport::Channel;
 use tonic::Request;
 
 const SERVER_PORT: i32 = 50051;
+const EMPTY_MESSAGE: &str = "";
 
 pub mod rust_chat {
   tonic::include_proto!("rustchat");
@@ -20,12 +21,16 @@ use rust_chat::{
 
 async fn print_messages(
   mut client: ChatRoomClient<Channel>,
+  username: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
   let cursor = 0;
-  let request = Request::new(GetMessageStreamRequest { cursor: cursor });
+  let request = Request::new(GetMessageStreamRequest { cursor: cursor, username: username });
   let mut stream = client.get_message_stream(request).await?.into_inner();
   while let Some(reply) = stream.message().await? {
-    println!("{}", reply.message);
+    let msg = reply.message;
+    if msg != EMPTY_MESSAGE {
+      println!("{}", msg);
+    }
   }
   Ok(())
 }
@@ -44,11 +49,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let mut looping = response.into_inner().ok;
   println!("successful login as username {}!", username);
-  println!("write messages followed with enter");
 
   let message_client = client.clone();
+  let username_copy = username.clone();
   tokio::spawn(async move {
-    print_messages(message_client).await.unwrap();
+    print_messages(message_client, username_copy).await.unwrap();
   });
 
   println!("write your messages, followed by enter");
