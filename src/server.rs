@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -30,11 +31,11 @@ pub struct MyChatRoom {
   data_store: DataStore,
   // All open senders to clients
   subscriptions: Mutex<Vec<(String, ChatRoomSender)>>,
+  online_users: Mutex<HashSet<String>>,
 }
 
 impl MyChatRoom {
   async fn add_message(&self, msg: String) {
-    self.data_store.add_message(msg.clone()).await;
     let mut subscriptions = self.subscriptions.lock().await;
     self.add_message_with_lock(msg, &mut subscriptions).await;
   }
@@ -44,6 +45,7 @@ impl MyChatRoom {
     msg: String,
     subscriptions: &mut tokio::sync::MutexGuard<'_, Vec<(String, ChatRoomSender)>>,
   ) {
+    self.data_store.add_message(msg.clone()).await;
     for (_, tx) in subscriptions.iter_mut() {
       let reply = GetMessageStreamReply {
         message: msg.clone(),
@@ -59,12 +61,19 @@ impl MyChatRoom {
 impl ChatRoom for Arc<MyChatRoom> {
   async fn login(&self, request: Request<LoginRequest>) -> Result<Response<LoginReply>, Status> {
     let username = request.into_inner().username;
-    let success = self.data_store.create_user(&username).await;
-    if success {
+    let mut online_users = self.online_users.lock().await;
+    /* login_success = (!user_exists * create_success)
+    + (user_exists * !online) */
+    let login_success = match self.data_store.user_exists(&username).await {
+      false => self.data_store.create_user(&username).await,
+      true => !online_users.contains(&username),
+    };
+    if login_success {
       let msg = format!("{} logged on!", username);
+      online_users.insert(username);
       self.add_message(msg).await;
     }
-    let reply = rust_chat::LoginReply { ok: success };
+    let reply = rust_chat::LoginReply { ok: login_success };
     Ok(Response::new(reply))
   }
 
@@ -119,6 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let chatroom = Arc::new(MyChatRoom {
     data_store: DataStore::new(),
     subscriptions: Mutex::new(Vec::new()),
+    online_users: Mutex::new(HashSet::new()),
   });
 
   let client_clone = chatroom.clone();
@@ -138,10 +148,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
           indexes_to_remove.push(i);
         }
       }
+      let mut online_users = client_clone.online_users.lock().await;
       for i in indexes_to_remove {
         let username = subscriptions[i].0.clone();
         subscriptions.swap_remove(i);
         let msg = format!("{} logged out!", username);
+        online_users.remove(&username);
         client_clone
           .add_message_with_lock(msg, &mut subscriptions)
           .await;

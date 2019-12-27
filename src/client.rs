@@ -48,7 +48,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let response = client.login(request).await?;
 
   let mut looping = response.into_inner().ok;
-  println!("successful login as username {}!", username);
+  if !looping {
+    panic!("login failed for some reason!");
+  }
 
   let message_client = client.clone();
   let username_copy = username.clone();
@@ -60,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   while looping {
     let message: String = read!("{}\n");
 
+    // Clearing the line that the user inputted
     print!(
       "{clear}{goto}",
       clear = clear::CurrentLine,
@@ -70,6 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if message.is_empty() {
       continue;
     }
+
     let request = Request::new(SendMessageRequest {
       username: username.clone(),
       message: message.into(),
