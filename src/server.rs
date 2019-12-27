@@ -24,15 +24,12 @@ use rust_chat::{
   SendMessageRequest,
 };
 
+type ChatRoomSender = mpsc::UnboundedSender<Result<GetMessageStreamReply, Status>>;
+
 pub struct MyChatRoom {
   data_store: DataStore,
   // All open senders to clients
-  subscriptions: Mutex<
-    Vec<(
-      String,
-      mpsc::UnboundedSender<Result<GetMessageStreamReply, Status>>,
-    )>,
-  >,
+  subscriptions: Mutex<Vec<(String, ChatRoomSender)>>,
 }
 
 impl MyChatRoom {
@@ -45,19 +42,15 @@ impl MyChatRoom {
   async fn add_message_with_lock(
     &self,
     msg: String,
-    subscriptions: &mut tokio::sync::MutexGuard<
-      '_,
-      Vec<(
-        String,
-        mpsc::UnboundedSender<Result<GetMessageStreamReply, Status>>,
-      )>,
-    >,
+    subscriptions: &mut tokio::sync::MutexGuard<'_, Vec<(String, ChatRoomSender)>>,
   ) {
     for (_, tx) in subscriptions.iter_mut() {
       let reply = GetMessageStreamReply {
         message: msg.clone(),
       };
-      tx.try_send(Ok(reply));
+      if tx.try_send(Ok(reply)).is_err() {
+        println!("tried to send to a dropped client");
+      };
     }
   }
 }
@@ -110,7 +103,7 @@ impl ChatRoom for Arc<MyChatRoom> {
       .await;
     for message in messages {
       println!("sending message {}", message);
-      let reply = GetMessageStreamReply { message: message };
+      let reply = GetMessageStreamReply { message };
       tx.try_send(Ok(reply)).unwrap();
     }
     let mut subscriptions = self.subscriptions.lock().await;
@@ -128,14 +121,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     subscriptions: Mutex::new(Vec::new()),
   });
 
-  let cloned_ref = chatroom.clone();
-  // heartbeat loop
+  let client_clone = chatroom.clone();
+  // heartbeat loop to see if clients are still online
   tokio::spawn(async move {
     loop {
       let when = Instant::now() + Duration::new(HEARTBEAT_RATE, 0);
       delay(when).await;
 
-      let mut subscriptions = cloned_ref.subscriptions.lock().await;
+      let mut subscriptions = client_clone.subscriptions.lock().await;
       let mut indexes_to_remove = Vec::new();
       for (i, (_, tx)) in subscriptions.iter_mut().enumerate() {
         let reply = GetMessageStreamReply {
@@ -149,7 +142,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let username = subscriptions[i].0.clone();
         subscriptions.swap_remove(i);
         let msg = format!("{} logged out!", username);
-        cloned_ref
+        client_clone
           .add_message_with_lock(msg, &mut subscriptions)
           .await;
       }

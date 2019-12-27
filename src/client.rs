@@ -24,7 +24,7 @@ async fn print_messages(
   username: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
   let cursor = 0;
-  let request = Request::new(GetMessageStreamRequest { cursor: cursor, username: username });
+  let request = Request::new(GetMessageStreamRequest { cursor, username });
   let mut stream = client.get_message_stream(request).await?.into_inner();
   while let Some(reply) = stream.message().await? {
     let msg = reply.message;
