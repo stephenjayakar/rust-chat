@@ -38,8 +38,8 @@ impl DataStore {
 
   // TODO: add some type of cursor to not go through all messages
   // TODO: change this to events to support login messages
-  pub async fn get_messages(&self) -> Vec<String> {
+  pub async fn get_messages(&self, cursor: usize) -> Vec<String> {
     let messages = self.messages.lock().await;
-    messages.clone()
+    messages[cursor..].to_owned()
   }
 }
